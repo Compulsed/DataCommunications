@@ -1,15 +1,18 @@
 package net.dalesalter;
 
-import javax.xml.crypto.Data;
 import java.net.*;
 import java.io.*;
 
 /**
+ * Hello Server - UDP (Server)
+ * This program is used to create a UDP server on a specified port
+ * Any UDP packets will be responsed by a hard coded message printing my name and student ID
+ *
  * Created by Dale Salter (9724 397) on 29/04/2015.
  *
  * This program has been put together and inspired from various places
- * [1] - https://docs.oracle.com/javase/tutorial/essential/environment/cmdLineArgs.html
- * [2] - http://www.cs.uic.edu/~troy/spring05/cs450/sockets/UDPServer.java
+ *  [1] - https://docs.oracle.com/javase/tutorial/essential/environment/cmdLineArgs.html
+ *  [2] - http://www.cs.uic.edu/~troy/spring05/cs450/sockets/UDPServer.java
  */
 public class Server {
 
@@ -50,6 +53,12 @@ public class Server {
      */
     private static int inputPort = 8888;
 
+    /**
+     * Custom response back to the sender, this will be put on every UDP packet
+     */
+
+    private static String response = "Hello, my name is Dale Salter and my ID is 9724 397";
+
 
     /**
      * [2] - Sets up the socket with the previously specified port
@@ -62,7 +71,7 @@ public class Server {
         } catch (SocketException e) {
             System.err.println("Critical error, must terminate. Do you have another server bound to this port? - "
                     + inputPort);
-            // Must exit, we have encountered an unrecoverable error
+            // In an unrecoverable state, we must exit the application
             System.exit(1);
         }
     }
@@ -76,19 +85,17 @@ public class Server {
         InetAddress IPAddress = null;
         int port = 0;
 
-        // Custom response back to the sender
-        String response = "Hello, my name is Dale Salter and my ID is 9724 397";
 
-        try {
-            while(true) {
+        while(true) {
+            try {
                 // Prepares for a packet to be sent to the server, the Datagram packet will need to know the length
                 //  and the buffer to put the received bytes
                 receivePacket = new DatagramPacket(receiveData, receiveData.length);
 
-                System.out.println ("Server Status -> Waiting for Datagram packet");
+                System.out.println("Server Status -> Waiting for Datagram packet");
 
                 // Blocks until there has been a UDP packet sent to the server
-                //  unblocks when it has finished filling in receive packet with data
+                //  unblocks when it has finished filling in receive packet with data from the client UDP data
                 serverSocket.receive(receivePacket);
 
                 // Extracts the port and the IP address of the client, will need to know for sending a response back
@@ -105,13 +112,14 @@ public class Server {
                 // Sends the created UDP packet to the client
                 serverSocket.send(sendPacket);
 
-                System.out.println ("Server Status -> Sent packet containing custom message to IP: "
+                System.out.println("Server Status -> Sent packet containing custom message to IP: "
                         + IPAddress + " Port:" + port);
             }
-        } catch (IOException e)
-        {
-            // Something has gone wrong with processing the network packet, error not fatal
-            e.printStackTrace();
+            catch (IOException e)
+            {
+                // Something has gone wrong with processing the network packet, error not fatal
+                e.printStackTrace();
+            }
         }
 
     }
@@ -131,11 +139,15 @@ public class Server {
                 // Checks to see if the port number sent is actually within the valid port ranges
                 if (inputPort >= 65536 || inputPort < 0){
                     System.err.print("Port: " + inputPort + " is out of the valid port ranges 0 - 65535");
+
+                    // In an unrecoverable state, we must exit the application
                     System.exit(1);
                 }
             } catch (NumberFormatException e){
                 // The value sent is not able to be turned into a port,  therefore we must exit
                 System.err.println("Argument" + args[0] + " must be an interger.");
+
+                // In an unrecoverable state, we must exit the application
                 System.exit(1);
             }
         }
