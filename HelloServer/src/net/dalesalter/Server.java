@@ -6,7 +6,7 @@ import java.io.*;
 /**
  * Hello Server - UDP (Server)
  * This program is used to create a UDP server on a specified port
- * Any UDP packets will be responsed by a hard coded message printing my name and student ID
+ * Any UDP packets will be responsed by a hard coded message printing my name and student ID.
  *
  * Created by Dale Salter (9724 397) on 29/04/2015.
  *
@@ -118,7 +118,7 @@ public class Server {
             catch (IOException e)
             {
                 // Something has gone wrong with processing the network packet, error not fatal
-                e.printStackTrace();
+                System.out.println("Something has gone wrong with - " + IPAddress + ":" + port);
             }
         }
 

@@ -7,6 +7,8 @@ import java.io.*;
  * Hello Server - UDP (Client)
  *
  * Created by Dale Salter (9724 397) on 29/04/2015.
+ * This program is used to connect to the Hello Server - UDP (Client) on the specified port
+ * and IP address. It should return a message containing my name and student ID.
  *
  * This program has been put together and inspired from various places
  *  [1] - https://docs.oracle.com/javase/tutorial/essential/environment/cmdLineArgs.html
