@@ -173,8 +173,12 @@ public class FileServer {
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
+
+            System.exit(1);
         } catch (IOException e) {
             e.printStackTrace();
+
+            System.exit(1);
         }
     }
 
