@@ -7,6 +7,8 @@ import java.net.UnknownHostException;
 
 /**
  * FileClient
+ * Used to connect to the corresponding sever,
+ * can receive files from that server
  *
  * Created by Dale Salter (9724 397) on 29/04/2015.
  *
@@ -101,61 +103,80 @@ public class FileClient {
             System.exit(1);
         }
 
-        // Writes the message to the server
+        // Writes the request message to the server
         BufferedWriter toServer;
 
+        // The binary file response from the server
         DataInputStream fromServer;
+
+        // The file to write the response to
         FileOutputStream toDisk;
 
+        // The valid file string
+        String fileString = args[2];
+        String requestMessage;
+
         try {
-            System.out.println("Connecting to server!");
+            System.out.println("Client status -> Attempting to connect to the server!");
+            // Connects to the server given the user inputted IP and Port number
             socket = new Socket(serverIP, serverPort);
+            System.out.println("Client status -> " + socket +  " -> Connected!");
 
+            // Constructs request message
+            requestMessage = "Send " + fileString + "\r\n";
 
-            System.out.println("Constructing message!");
-            String requestMessage = "Send " + args[2] + "\r\n";
-
+            // Prepares the connection to be written to
             toServer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
 
-            System.out.println("Writing message!");
+            // Writes to message to the buffer, preparing it to be sent to the server
+            System.out.println("Client status -> " + socket + " -> Writing message!");
             toServer.write(requestMessage, 0, requestMessage.length());
 
-            System.out.println("Flushed message!");
+            // Clears the buffer so that the server will get the request message
+            //  this also stops a potential problem with the server and client
+            //  locking up
+            System.out.println("Client status -> " + socket + " -> Flushed message!");
             toServer.flush();
 
 
-
-            toDisk = new FileOutputStream(new File(args[2]));
+            // Prepares the file and the stream for connection
+            toDisk = new FileOutputStream(new File(fileString));
             fromServer = new DataInputStream(socket.getInputStream());
 
+            System.out.println("Client status -> " + socket + " -> Attempting disk write and network read");
 
+            // Buffer is used to take in the file at a fixed amount at a time
+            //  and is also used to read that file sent from the server
             byte[] buffer = new byte[1024];
 
 
+            // Uses to keep track of the number of bytes sent across the network
+            int totalsBytesReceived = 0;
 
-            System.out.println("Attempting disk write!");
+
+            // Keeps track of the byte location of the file
             int read = 0;
+
+            // Reads from the network, puts it into the buffer and then
+            //  writes to that file
             while((read = fromServer.read(buffer, 0, 1024)) != -1){
                 toDisk.write(buffer, 0, read);
+                totalsBytesReceived += read;
             }
 
+            System.out.println("Client status -> " + socket + " -> " + fileString + " written to disk, Bytes received: "
+                    + totalsBytesReceived);
 
-
-            System.out.println("Closing file!");
+            // Closes the file so it can be used by another application
             toDisk.close();
 
+            // Closes the TCP connection to the server
 
             socket.close();
-
-
         } catch (IOException e) {
-            e.printStackTrace();
+            System.err.println("Something has gone wrong with the connection!");
         }
 
-        for (String arg : args)
-            System.out.println(arg);
-
-        System.out.println("END!");
 
         return;
     }

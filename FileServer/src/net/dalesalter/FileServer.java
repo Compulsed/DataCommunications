@@ -8,13 +8,17 @@ import java.util.StringTokenizer;
 
 /**
  * FileServer
+ * Used to connect to the corresponding client
+ * can send files to that client
  *
  * Created by Dale Salter (9724 397) on 29/04/2015.
  *
  * This program has been put together and inspired from various places
  *  [1] - https://docs.oracle.com/javase/tutorial/essential/environment/cmdLineArgs.html
  *  [2] - http://www.cs.uic.edu/~troy/spring05/cs450/sockets/WebServer.java
+ *  [3] - http://www.rgagnon.com/javadetails/java-check-if-a-filename-is-valid.html
  */
+
 public class FileServer {
 
     /**
@@ -30,7 +34,7 @@ public class FileServer {
     /**
      * [2] - Sets up the socket with the previously specified port
      */
-    private static void setUp(){
+    private static void setUpConnection(){
         try {
             // Sets up a new socket where the clients can connect to, the port is the one specified by the user
             serverSocket = new ServerSocket(inputPort);
@@ -39,6 +43,21 @@ public class FileServer {
                     + inputPort);
             // In an unrecoverable state, we must exit the application
             System.exit(1);
+        }
+    }
+
+    /**
+     * [3] Used as a way of quickly determining whether a file is valid before asking for it
+     * @param file  The name of the file that you want to test for
+     * @return Whether given the file name, is it valid or not
+     */
+    public static boolean isFilenameValid(String file) {
+        File f = new File(file);
+        try {
+            f.getCanonicalPath();
+            return true;
+        } catch (IOException e) {
+            return false;
         }
     }
 
@@ -53,79 +72,110 @@ public class FileServer {
         // The connection of the client
         Socket connectionSocket = null;
 
+        // The message sent from the client to the server
         String requestMessageLine;
+
+        // The filename that the client is requesting
         String fileName;
 
-        try {
-            System.out.println("Waiting for a client!");
-            connectionSocket = serverSocket.accept();
-            System.out.println("Client connected!");
+        // Used to get the handle input from the TCP connection
+        BufferedReader inFromClient;
+        // Used when writing to the file
+        DataOutputStream outToClient;
 
-            BufferedReader inFromClient = new BufferedReader (
-                    new InputStreamReader(connectionSocket.getInputStream()));
+        while (true) {
+            try {
+                System.out.println("Server status -> Waiting for a client!");
+                connectionSocket = serverSocket.accept();
+                System.out.println("Server status -> " + connectionSocket +  " -> Client connected!");
 
-            DataOutputStream outToClient = new DataOutputStream (
-                    connectionSocket.getOutputStream());
+                // Sets up input stream to the network so that it accepts UTF
+                inFromClient = new BufferedReader(new InputStreamReader(connectionSocket.getInputStream()));
 
-            requestMessageLine = inFromClient.readLine();
-            System.out.println ("Request: " + requestMessageLine);
-            StringTokenizer tokenizedLine = new StringTokenizer(requestMessageLine);
+                // Reads the line from the client
+                requestMessageLine = inFromClient.readLine();
+                System.out.println("Server status -> " + connectionSocket + " -> Request string: " + requestMessageLine);
+
+                // We need to parse the response
+                // Valid responses should be in the form "Show" <filename>
+                StringTokenizer tokenizedLine = new StringTokenizer(requestMessageLine);
+
+                // Get the first token and check that is equal to "Send"
+                if (tokenizedLine.nextToken().equals("Send")) {
+                    fileName = tokenizedLine.nextToken();
+
+                    // remove leading slash from line if exists
+                    if (fileName.startsWith("/") == true)
+                        fileName = fileName.substring(1);
 
 
-            // check for Send request
-            if (tokenizedLine.nextToken().equals("Send"))
-            {
-                fileName = tokenizedLine.nextToken();
+                    // Check if the file name could be something that can be saved
+                    if(isFilenameValid(fileName)){
+                        FileInputStream inFile = new FileInputStream("store/" + fileName);
 
-                // remove leading slash from line if exists
-                if (fileName.startsWith("/") == true)
-                    fileName = fileName.substring(1);
+                        // Sets up output stream to send binary data back over the network
+                        outToClient = new DataOutputStream(connectionSocket.getOutputStream());
 
-                // access the requested file
-                File file = new File(fileName);
 
-                // convert file to a byte array
-                // int numOfBytes = (int) file.length();
-                FileInputStream inFile = new FileInputStream ("store/" + fileName);
-                //byte[] fileInBytes = new byte[numOfBytes];
-                //inFile.read(fileInBytes);
-                // inFile.close();
+                        // Buffer is used to take in the file at a fixed amount at a time
+                        //  and is also used to send that message to the client
+                        byte[] buffer = new byte[1024];
 
-                System.out.println("#2");
 
-                // System.out.println(fileInBytes);
+                        // Uses to keep track of the number of bytes sent across the network
+                        int totalBytesSent = 0;
 
-                // Send reply
-                byte[] buffer = new byte[1024];
+                        // Keeps track of the byte location of the file
+                        int read;
 
-                int read;
-                while((read = inFile.read(buffer)) != -1){
-                    outToClient.write(buffer, 0, read);
+                        // Reads from the file, puts it into the buffer and then sends it
+                        //  across the network
+                        while ((read = inFile.read(buffer)) != -1) {
+                            outToClient.write(buffer, 0, read);
+                            totalBytesSent += read;
+                        }
+
+                        // closes the file so that it can be reponed by another application
+                        inFile.close();
+
+                        System.out.println("Server status -> " + connectionSocket + " -> Finished serving: " + fileName + ", Bytes sent: " + totalBytesSent);
+                    } else {
+                        System.out.println("Server status -> Unable to send: " + fileName);
+                    }
+                } else {
+                    System.out.println("Server status -> Bad Request Message");
                 }
 
-                // outToClient.write(fileInBytes, 0, numOfBytes);
-                //outToClient.flush();
-                //outToClient.close();
-
-
-
+                // Closes the TCP connection to the client
                 connectionSocket.close();
 
-                System.out.println("Finished serving!");
-            }
-            else
-            {
-                System.out.println ("Bad Request Message");
-            }
+                System.out.println("------------------------------------------");
 
+            } catch (IOException e) {
+                System.err.println("Something has gone wrong with the connection!");
+            }
+        }
 
+    }
+
+    /**
+     * Makes a Temp file which can be used to demonstrate functionality
+     */
+    public static void fileSetUp(){
+        System.out.println("Server status: Making mock files");
+
+        File newFile = new File("store/myfile.txt");
+        try {
+            FileOutputStream fileOutput = new FileOutputStream(newFile);
+            fileOutput.write((new String("0123456789").getBytes()));
+
+            fileOutput.close();
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-
-
-
     }
 
     /**
@@ -134,24 +184,6 @@ public class FileServer {
      *      args[0] the port of the server to bind onto in the format "8888"
      */
     public static void main(String[] args) {
-
-//        System.out.println("FileServer Output!");
-//
-//        File newFile = new File("store/myfile.txt");
-//        try {
-//            FileOutputStream fileOutput = new FileOutputStream(newFile);
-//            fileOutput.write((new String("lol").getBytes()));
-//
-//            fileOutput.close();
-//
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-
-
-
         // [1] Assume if there are any arguments given to the application
         // it will be a given port number as the first argument
         if(args.length > 0) {
@@ -175,14 +207,15 @@ public class FileServer {
             }
         }
 
+        // Creates a temp file to send
+        fileSetUp();
+
         // Sets up the TCP port
-        setUp();
+        setUpConnection();
 
         // Listens to incoming TCP connections on that port
         runServer();
 
-        for (String arg: args)
-            System.out.println(arg);
 
         return;
     }
