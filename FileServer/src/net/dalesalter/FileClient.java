@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.net.UnknownHostException;
 
+
 /**
  * FileClient
  * Used to connect to the corresponding sever,
@@ -18,6 +19,7 @@ import java.net.UnknownHostException;
  *  [3] - http://www.rgagnon.com/javadetails/java-check-if-a-filename-is-valid.html
  */
 public class FileClient {
+
 
     /**
      * The user specified IP address that they believe the server is listening on
@@ -151,7 +153,7 @@ public class FileClient {
 
 
             // Uses to keep track of the number of bytes sent across the network
-            int totalsBytesReceived = 0;
+            long totalsBytesReceived = 0;
 
 
             // Keeps track of the byte location of the file

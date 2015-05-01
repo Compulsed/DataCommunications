@@ -123,7 +123,7 @@ public class FileServer {
 
 
                         // Uses to keep track of the number of bytes sent across the network
-                        int totalBytesSent = 0;
+                        long totalBytesSent = 0;
 
                         // Keeps track of the byte location of the file
                         int read;
@@ -212,7 +212,7 @@ public class FileServer {
         }
 
         // Creates a temp file to send
-        fileSetUp();
+        // fileSetUp();
 
         // Sets up the TCP port
         setUpConnection();
