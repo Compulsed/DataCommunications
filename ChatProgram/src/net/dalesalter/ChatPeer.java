@@ -2,7 +2,6 @@ package net.dalesalter;
 
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
@@ -12,190 +11,249 @@ import java.util.*;
 
 public class ChatPeer {
 
-    public static final String ANSI_RED = "\u001B[31m";
+    /**
+     * Used for pretty text output
+     */
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_BLUE = "\u001B[34m";
 
+    /***
+     * ServerThread is concerned with waiting for
+     * packets sent from other peers and then displaying
+     * them to the terminal
+     */
     static class ServerThread extends Thread {
+        public ServerThread(){}
 
         /**
-         * User may specify a port to have a socket bind to, default is 8888 if none specified
+         *  Is the method that is invoked when the thread is started with start()
          */
-        private static int inputPort = 0;
-
-        public ServerThread(String args[]){
-            if(args.length == 2) {
-                try {
-                    // Turns the string argument into an integer (one we can actually use to define the port)
-                    inputPort = Integer.parseInt(args[0]);
-
-                    // Checks to see if the port number sent is actually within the valid port ranges
-                    if (inputPort >= 65536 || inputPort < 0){
-                        System.err.print("Port: " + inputPort + " is out of the valid port ranges 0 - 65535");
-
-                        // In an unrecoverable state, we must exit the application
-                        System.exit(1);
-                    }
-                } catch (NumberFormatException e){
-                    // The value sent is not able to be turned into a port,  therefore we must exit
-                    System.err.println("Argument" + args[0] + " must be an interger.");
-
-                    // In an unrecoverable state, we must exit the application
-                    System.exit(1);
-                }
-
-                try {
-                    validPeers = Config.load(args[1]);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                System.out.println("Usage: <Server Port> <Configuration File>");
-                System.exit(1);
-            }
-
-
-            System.out.println("------------------------ Imported valid peers -------------------------");
-            for ( HashMap<Integer, Peer> portPeerSet: validPeers.values() )
-                for ( Peer peer : portPeerSet.values() )
-                    System.out.println(peer);
-            System.out.println("-----------------------------------------------------------------------");
-
-            System.out.println("Server -> Configured to listen on port " + inputPort);
-        }
-
         public void run(){
-
-            try {
-                // Creates a UDP socket, which will listen to all the UDP messages sent to it on the previously given port
-                duplexSocket = new DatagramSocket(inputPort);
-            } catch (SocketException e) {
-                System.err.println("Critical error, must terminate. Do you have another server bound to this port? - "
-                        + inputPort);
-                // In an unrecoverable state, we must exit the application
-                System.exit(1);
-            }
-
-            System.out.println("Server -> Listening for messages at: " + duplexSocket);
-
-            // The IP address and port number of the person who sent the UDP packet, need to know when sending a response back
             InetAddress IPAddress = null;
             int port = 0;
 
             byte[] receiveData = new byte[1024];
             DatagramPacket receivePacket = null;
+
             String receivedMessageString = "";
+
+            // Used to store IP address that have already printed to the application
+            //  about them being unauthorized
+            HashSet<InetAddress> unauthorisedPeers = new HashSet<InetAddress>();
 
             while(true) {
                 try{
+                    // Creates a packet object read to be filled by other peers sending in their chat messages
                     receivePacket = new DatagramPacket(receiveData, receiveData.length);
 
-                    duplexSocket.receive(receivePacket);
+                    // Blocks until a chat message has been sent by any peers
+                    fullDuplexUDPSocket.receive(receivePacket);
 
+                    // We will need to get the IP address and Port to check whether it is an authorized peer
                     IPAddress = receivePacket.getAddress();
                     port = receivePacket.getPort();
 
-                    // Checks to see if they exist
+                    // Checks to see if they are authorized given a IP and Port
                     if(validPeers.containsKey(IPAddress) && validPeers.get(IPAddress).containsKey(port)){
+                        // Turns the pack information into a string
                         receivedMessageString = new String(receivePacket.getData());
 
+                        // Prints the pretty coloured message to the terminal
                         System.out.println("\nServer Status -> " + validPeers.get(IPAddress).get(port) + " -> " + ANSI_BLUE + receivedMessageString.trim() + ANSI_RESET);
-
                     }
+
+                    // If they are not authorized
                     else  {
+                        // If the user has not been warned before of the IP being unauthorized, warn them
                         if(!unauthorisedPeers.contains(IPAddress)){
                             System.out.println("Server -> Unauthorized chat request from <" + IPAddress + ">");
+
+                            // Add the IP to the warning list so it does not get triggered next time
                             unauthorisedPeers.add(IPAddress);
                         }
                     }
 
+                    // Reset the byte array, avoid printing problems
                     receiveData = new byte[1024];
-                    System.out.print("Client status -> Send Message ~> ");
+
+                    // Corrects the terminal output still look consistent after an asynchronous message has been sent
+                    //  from a peer
+                    ClientThread.UserInputPrompt();
                 }
                 catch (IOException e)
                 {
-                    System.out.println("Something has gone wrong with - " + IPAddress + ":" + port);
+                    System.out.println("Something has gone wrong with " + IPAddress + ":" + port);
                 }
             }
         }
 
     }
 
+    /**
+     * ClientThread is concerned with taking user input
+     *  and then sending it to all of the trusted peers
+     */
     static class ClientThread extends Thread {
-
         public ClientThread(){}
 
+        /**
+         *  Is the method that is invoked when the thread is started with start()
+         */
         public void run(){
-
-            DatagramPacket sendPacket;
-            byte[] sendData = new byte[1024];
-
+            // Buffers user input
             BufferedReader inFromUser = new BufferedReader(new InputStreamReader(System.in));
 
+            // Required information to send the packet to other peers
+            DatagramPacket sendPacket;
+            byte[] sendData = new byte[1024];
             String sentence = "";
 
             while(true) {
                 try {
 
-                    System.out.print("Client status -> Send Message ~> ");
+                    UserInputPrompt();
 
                     try {
-                        sentence = inFromUser.readLine();
+                        sentence = inFromUser.readLine(); // Blocks here until a user enters their message
                     } catch (IOException e) {
-                        e.printStackTrace();
+                        System.err.println("Commandline input error, try again?");
+                        continue; // Attempts to take in more input
                     }
 
-                    sentence += "\r\n";
-                    sendData = sentence.getBytes();
+                    sentence += "\r\n"; // Adds a new line to the message
+                    sendData = sentence.getBytes(); // Turns the string into bytes for the Datagram packet
 
+                    // Loops over all IP addresses and then all Ports those IP addresses may have clients on
                     for (HashMap<Integer, Peer> portPeerSet : validPeers.values())
                         for (Peer peer : portPeerSet.values()) {
+
+                            // Creates the packet with the input and then sends it off to the clients
                             sendPacket = new DatagramPacket(sendData, sendData.length, peer.getPeerIP(), peer.getPeerPort());
-                            duplexSocket.send(sendPacket);
+                            fullDuplexUDPSocket.send(sendPacket);
                         }
 
                 }
                 catch (IOException e)
                 {
-                    System.out.println("Something has gone wrong sending the packet to the peers!");
+                    System.out.println("Something has gone wrong sending the packet to the peers, continuing");
                 }
             }
+        }
+
+        /**
+         * Prints the prompt, may need to be used by the server so the output seems correct
+         */
+        public static void UserInputPrompt(){
+            System.out.print("Client status -> Send Message ~> ");
+        }
+
+
+    }
+
+    /**
+     * setUp sets to entire project up with the given arguments
+     *  - Loading configuration files
+     *  - Setting up validPeers
+     *  - Setting up the DatagramSocket
+     * @param args The command line arguments given to the application
+     */
+    public static void setUp(String[] args){
+        int serverPort = 0;
+
+        if(args.length == 2) {
+            try {
+                // Turns the string argument into an integer (one we can actually use to define the port)
+                serverPort = Integer.parseInt(args[0]);
+
+                // Checks to see if the port number sent is actually within the valid port ranges
+                if (serverPort >= 65536 || serverPort < 0){
+                    System.err.print("Port: " + serverPort + " is out of the valid port ranges 0 - 65535");
+
+                    // In an unrecoverable state, we must exit the application
+                    System.exit(1);
+                }
+            } catch (NumberFormatException e){
+                // The value sent is not able to be turned into a port,  therefore we must exit
+                System.err.println("Argument" + args[0] + " must be an interger.");
+
+                // In an unrecoverable state, we must exit the application
+                System.exit(1);
+            }
+
+            // Attempts to load in from the given configuration file, all of the authorized peers
+            try {
+                validPeers = Config.load(args[1]);
+            } catch (IOException e) {
+                System.err.println("Unable to load in configuration file " + args[1] + " check that it is available");
+                System.exit(1);
+            }
+
+        } else {
+            System.out.println("Usage: <Server Port> <Configuration File>");
+            System.exit(1);
+        }
+
+
+        // Prints all the peers that were loaded in from the configuration file
+        System.out.println("------------------------ Imported valid peers -------------------------");
+        for ( HashMap<Integer, Peer> portPeerSet: validPeers.values() )
+            for ( Peer peer : portPeerSet.values() )
+                System.out.println(peer);
+        System.out.println("-----------------------------------------------------------------------");
+
+        // Sets up the full duplex socket (communicate to and from using the same socket)
+        try {
+            fullDuplexUDPSocket = new DatagramSocket(serverPort);
+        } catch (SocketException e) {
+            System.err.println("Critical error, must terminate. Do you have another server bound to this port? - "
+                    + serverPort);
+            // In an unrecoverable state, we must exit the application
+            System.exit(1);
         }
 
     }
 
 
-
-
-
-    // IP -> Port -> Peer
+    /**
+     * This data structure stores all the the valid peers loaded in from the configuration file
+     *  allows you to have multiple peers communicate from the same IP address by using ports
+     *  & the IP as identifiers
+     *
+     * IP -> Port -> Peer
+     */
     public static HashMap<InetAddress, HashMap<Integer, Peer>> validPeers = new HashMap<InetAddress, HashMap<Integer, Peer>>();
 
-    // IP -> Peer
-    public static HashSet<InetAddress> unauthorisedPeers = new HashSet<InetAddress>();
+    /**
+     * The communication socket, other peers will send messages to this socket
+     * The client will also send messages to other peers using this socket
+     */
+    private static DatagramSocket fullDuplexUDPSocket = null;
 
-    private static DatagramSocket duplexSocket = null;
-
+    /**
+     * Application starting point
+     * @param args Arguments passed in from the command line when starting the application
+     */
     public static void main(String[] args) {
-        ServerThread st = new ServerThread(args);
+        setUp(args);
+
+        // Sets up the server thread
+        ServerThread st = new ServerThread();
+
+        // Sets up the client thread
         ClientThread ct = new ClientThread();
 
-	    // write your code here
-        // ServerThread a = new ServerThread();
-        // ClientThread b = new ClientThread();
 
-        // a.start();
-        // b.start();
-
-
+        // Starts the server
         st.start();
 
+        // Delays the client so that the command line input should be in the right order
         try {
             Thread.sleep(1000);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
 
+        // Starts the client, this stores the RPEL and the System.in will stay here
         ct.start();
     }
 }
