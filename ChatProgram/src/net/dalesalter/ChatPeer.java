@@ -12,6 +12,10 @@ import java.util.*;
 
 public class ChatPeer {
 
+    public static final String ANSI_RED = "\u001B[31m";
+    public static final String ANSI_RESET = "\u001B[0m";
+    public static final String ANSI_BLUE = "\u001B[34m";
+
     static class ServerThread extends Thread {
 
         /**
@@ -95,7 +99,7 @@ public class ChatPeer {
                     if(validPeers.containsKey(IPAddress) && validPeers.get(IPAddress).containsKey(port)){
                         receivedMessageString = new String(receivePacket.getData());
 
-                        System.out.println("\n\nServer Status -> " + validPeers.get(IPAddress).get(port) + " -> " + receivedMessageString.trim());
+                        System.out.println("\nServer Status -> " + validPeers.get(IPAddress).get(port) + " -> " + ANSI_BLUE + receivedMessageString.trim() + ANSI_RESET);
 
                     }
                     else  {
@@ -105,7 +109,8 @@ public class ChatPeer {
                         }
                     }
 
-                    System.out.print("\nClient status -> Send Message ~> ");
+                    receiveData = new byte[1024];
+                    System.out.print("Client status -> Send Message ~> ");
                 }
                 catch (IOException e)
                 {
@@ -132,12 +137,7 @@ public class ChatPeer {
             while(true) {
                 try {
 
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                    System.out.print("\nClient status -> Send Message ~> ");
+                    System.out.print("Client status -> Send Message ~> ");
 
                     try {
                         sentence = inFromUser.readLine();
@@ -164,6 +164,10 @@ public class ChatPeer {
 
     }
 
+
+
+
+
     // IP -> Port -> Peer
     public static HashMap<InetAddress, HashMap<Integer, Peer>> validPeers = new HashMap<InetAddress, HashMap<Integer, Peer>>();
 
@@ -184,8 +188,14 @@ public class ChatPeer {
         // b.start();
 
 
-
         st.start();
+
+        try {
+            Thread.sleep(1000);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         ct.start();
     }
 }
