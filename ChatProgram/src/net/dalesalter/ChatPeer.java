@@ -1,7 +1,5 @@
 package net.dalesalter;
 
-import com.sun.deploy.util.SessionState;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
