@@ -16,6 +16,8 @@ public class ChatPeer {
      */
     public static final String ANSI_RESET = "\u001B[0m";
     public static final String ANSI_BLUE = "\u001B[34m";
+    public static final String ANSI_RED = "\u001B[31m";
+
 
     /***
      * ServerThread is concerned with waiting for
@@ -144,7 +146,7 @@ public class ChatPeer {
          * Prints the prompt, may need to be used by the server so the output seems correct
          */
         public static void UserInputPrompt(){
-            System.out.print("Client status -> Send Message ~> ");
+            System.out.print("Client status -> Send Message" + ANSI_RED + " ~> " + ANSI_RESET);
         }
 
 
@@ -257,3 +259,4 @@ public class ChatPeer {
         ct.start();
     }
 }
+
