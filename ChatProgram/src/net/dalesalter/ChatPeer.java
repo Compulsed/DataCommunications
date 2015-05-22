@@ -9,16 +9,21 @@ import java.net.InetAddress;
 import java.net.SocketException;
 import java.util.*;
 
+/**
+ * PeerToPeer
+ *
+ * Used to connect and chat to together people using the same PeerToPeer client
+ *  Once you set up the configuration file, you can then just chat away
+ *
+ * This program support authentication, if people are not in the configuration file
+ *  you are warned that they are trying to connect and then nothing more is displayed
+ *
+ * This program has been put together and inspired from various places
+ *  [1] - https://docs.oracle.com/javase/tutorial/essential/environment/cmdLineArgs.html
+ *  [2] - http://docs.oracle.com/javase/1.5.0/docs/api/java/net/InetAddress.html#getByName%28java.lang.String%29
+ *  [3] - http://www.rgagnon.com/javadetails/java-check-if-a-filename-is-valid.html
+ */
 public class ChatPeer {
-
-    /**
-     * Used for pretty text output
-     */
-    public static final String ANSI_RESET = "\u001B[0m";
-    public static final String ANSI_BLUE = "\u001B[34m";
-    public static final String ANSI_RED = "\u001B[31m";
-
-
     /***
      * ServerThread is concerned with waiting for
      * packets sent from other peers and then displaying
@@ -60,19 +65,24 @@ public class ChatPeer {
                         // Turns the pack information into a string
                         receivedMessageString = new String(receivePacket.getData());
 
+                        Peer sendingPeer = validPeers.get(IPAddress).get(port);
+
                         // Prints the pretty coloured message to the terminal
-                        System.out.println("\nServer Status -> " + validPeers.get(IPAddress).get(port) + " -> " + ANSI_BLUE + receivedMessageString.trim() + ANSI_RESET);
+                        System.out.println("\nServer Status -> " + sendingPeer.getPeerName() + " <" + sendingPeer.getPeerIP() + "> " + receivedMessageString.trim());
                     }
 
                     // If they are not authorized
                     else  {
                         // If the user has not been warned before of the IP being unauthorized, warn them
-                        if(!unauthorisedPeers.contains(IPAddress)){
+                        if(!unauthorisedPeers.contains(IPAddress)) {
                             System.out.println("Server -> Unauthorized chat request from <" + IPAddress + ">");
 
                             // Add the IP to the warning list so it does not get triggered next time
                             unauthorisedPeers.add(IPAddress);
+
+                            ClientThread.UserInputPrompt();
                         }
+                        continue;
                     }
 
                     // Reset the byte array, avoid printing problems
@@ -80,10 +90,12 @@ public class ChatPeer {
 
                     // Corrects the terminal output still look consistent after an asynchronous message has been sent
                     //  from a peer
+
                     ClientThread.UserInputPrompt();
                 }
                 catch (IOException e)
                 {
+                    // We should continue on because the error is not critical
                     System.out.println("Something has gone wrong with " + IPAddress + ":" + port);
                 }
             }
@@ -146,7 +158,8 @@ public class ChatPeer {
          * Prints the prompt, may need to be used by the server so the output seems correct
          */
         public static void UserInputPrompt(){
-            System.out.print("Client status -> Send Message" + ANSI_RED + " ~> " + ANSI_RESET);
+            System.out.println("Client status -> Send Message");
+            System.out.print(" ~> ");
         }
 
 
