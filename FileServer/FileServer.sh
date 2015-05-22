@@ -13,4 +13,4 @@ if [[ "$1" == "client"  ]]; then
   java -cp  src/ net.dalesalter.FileClient $2 $3 $4
 fi
 
-
+echo 'Usage: <client/server> <port> | client{ServerIP, FileName}'
